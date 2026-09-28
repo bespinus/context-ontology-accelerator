@@ -38,6 +38,11 @@ CONTEXT="--context env=$ENV"
 [ -n "${SCL_TIER1_METRIC_TIMEOUT_SECONDS:-}" ] && CONTEXT="$CONTEXT --context tier1_metric_timeout_s=$SCL_TIER1_METRIC_TIMEOUT_SECONDS"
 [ -n "${SCL_LAMBDA_RESERVED_CONCURRENCY:-}" ] && CONTEXT="$CONTEXT --context lambda_reserved_concurrency=$SCL_LAMBDA_RESERVED_CONCURRENCY"
 [ -n "${SCL_SMUS_ADMIN_ARNS:-}" ] && CONTEXT="$CONTEXT --context smus_admin_principal_arns=$SCL_SMUS_ADMIN_ARNS"
+# Storage sizing (sandbox cost reduction), e.g.:
+#   SCL_NEPTUNE_INSTANCE_CLASS=db.t4g.medium SCL_AOSS_MIN_OCU=0 SCL_AOSS_MAX_OCU=4 make deploy-dev
+[ -n "${SCL_NEPTUNE_INSTANCE_CLASS:-}" ] && CONTEXT="$CONTEXT --context neptune_instance_class=$SCL_NEPTUNE_INSTANCE_CLASS"
+[ -n "${SCL_AOSS_MIN_OCU:-}" ] && CONTEXT="$CONTEXT --context aoss_min_ocu=$SCL_AOSS_MIN_OCU"
+[ -n "${SCL_AOSS_MAX_OCU:-}" ] && CONTEXT="$CONTEXT --context aoss_max_ocu=$SCL_AOSS_MAX_OCU"
 
 # ── Preflight: SMUS admin principal ──────────────────────────────────────
 # NamespaceStack falls back to arn:aws:iam::<account>:role/Admin when

@@ -70,6 +70,21 @@ describe("StorageStack", () => {
       });
     });
 
+    it("honors the neptune_instance_class context override", () => {
+      const app = new cdk.App({
+        context: { neptune_instance_class: "db.t4g.medium" },
+      });
+      const network = new NetworkStack(app, "TestNetwork", { env: TEST_ENV });
+      const storage = new StorageStack(app, "TestStorage", {
+        network,
+        env: TEST_ENV,
+      });
+      Template.fromStack(storage).hasResourceProperties(
+        "AWS::Neptune::DBInstance",
+        { DBInstanceClass: "db.t4g.medium" },
+      );
+    });
+
     it("applies DESTROY removal policy to cluster and instance", () => {
       const { template } = buildStacks();
       // DESTROY removal policy adds DeletionPolicy: Delete to the resource

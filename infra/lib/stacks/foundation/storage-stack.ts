@@ -115,7 +115,11 @@ export class StorageStack extends SCLStack {
       "NeptunePrimaryInstance",
       {
         dbInstanceIdentifier: this.prefixed("neptune-primary"),
-        dbInstanceClass: "db.r8g.large",
+        // Override via `neptune_instance_class` (e.g. db.t4g.medium for sandboxes).
+        dbInstanceClass:
+          (this.node.tryGetContext("neptune_instance_class") as
+            | string
+            | undefined) ?? "db.r8g.large",
         dbClusterIdentifier: neptuneCluster.dbClusterIdentifier!,
       },
     );
