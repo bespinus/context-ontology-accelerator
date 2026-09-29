@@ -65,6 +65,7 @@ All stacks use context-driven configuration via `CoaStack` base class:
 | `aoss_max_ocu`             | `96`               | Max OCU capacity for OpenSearch Serverless (indexing + search) |
 | `aoss_min_ocu`             | `2`                | Min OCU capacity for OpenSearch Serverless (indexing + search). Set to `0` for scale-to-zero — see below |
 | `neptune_instance_class`   | `db.r8g.large`     | Neptune primary instance class; `db.t4g.medium` is the cheapest option for sandboxes |
+| `vpc_endpoints`            | `full`             | `minimal` keeps only the S3/DynamoDB gateway endpoints and the AOSS data-plane endpoint, routing other AWS API traffic through the NAT gateway (saves ~$275/month on a 2-AZ VPC). Ignored when `vpc_id` is set |
 | `api_throttle_rate_limit`  | `50`               | API Gateway stage requests-per-second rate limit               |
 | `api_throttle_burst_limit` | `100`              | API Gateway stage burst capacity                               |
 | `lambda_reserved_concurrency` | `5`             | Reserved concurrency for the VKG-reload and doc-preprocessing Lambdas; `0` disables reserving (needed on reduced Lambda-quota accounts) |

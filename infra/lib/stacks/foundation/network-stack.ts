@@ -24,6 +24,9 @@ import {
  * Context keys (in addition to SCLStack defaults):
  *   - `vpc_id` - optional; if provided, looks up an existing VPC instead
  *     of creating one.
+ *   - `vpc_endpoints` - `full` (default) or `minimal`. `minimal` keeps only
+ *     the S3/DynamoDB gateway endpoints and the AOSS data-plane interface
+ *     endpoint; all other AWS API traffic goes through the NAT gateway.
  *
  * Cross-network JDBC connectivity (created-VPC only; any combination):
  *   - VPC peering: `jdbc_peer_vpc_id`, `jdbc_peer_cidrs` (comma-separated),
@@ -119,6 +122,19 @@ export class NetworkStack extends SCLStack {
     // ── VPC Endpoints ────────────────────────────────────────────────
     // Only created for new VPCs. Imported VPCs are expected to have
     // their own endpoints managed externally.
+    //
+    // `vpc_endpoints=minimal` keeps only the gateway endpoints and the AOSS
+    // data-plane endpoint; the other AWS APIs are then reached through the
+    // NAT gateway (every workload SG already allows 443 egress to 0.0.0.0/0).
+    const endpointMode =
+      (this.node.tryGetContext("vpc_endpoints") as string | undefined) ??
+      "full";
+    if (endpointMode !== "full" && endpointMode !== "minimal") {
+      throw new Error(
+        `vpc_endpoints must be "full" or "minimal", got "${endpointMode}"`,
+      );
+    }
+
     if (!existingVpcId) {
       const createdVpc = this.vpc as ec2.Vpc;
 
@@ -130,7 +146,20 @@ export class NetworkStack extends SCLStack {
         service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
       });
 
-      // Interface endpoints
+      // AOSS data plane - created in every mode: the collection's network
+      // policy (storage-stack) only admits traffic from this endpoint ID.
+      const aossEndpoint = createdVpc.addInterfaceEndpoint("AossEndpoint", {
+        service: new ec2.InterfaceVpcEndpointService(
+          `com.amazonaws.${cdk.Stack.of(this).region}.aoss-data`,
+        ),
+        privateDnsEnabled: true,
+      });
+      this.aossVpcEndpointId = aossEndpoint.vpcEndpointId;
+    }
+
+    if (!existingVpcId && endpointMode === "full") {
+      const createdVpc = this.vpc as ec2.Vpc;
+
       createdVpc.addInterfaceEndpoint("BedrockRuntimeEndpoint", {
         service: ec2.InterfaceVpcEndpointAwsService.BEDROCK_RUNTIME,
         privateDnsEnabled: true,
@@ -159,14 +188,6 @@ export class NetworkStack extends SCLStack {
         service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
         privateDnsEnabled: true,
       });
-      const aossEndpoint = createdVpc.addInterfaceEndpoint("AossEndpoint", {
-        service: new ec2.InterfaceVpcEndpointService(
-          `com.amazonaws.${cdk.Stack.of(this).region}.aoss-data`,
-        ),
-        privateDnsEnabled: true,
-      });
-      this.aossVpcEndpointId = aossEndpoint.vpcEndpointId;
-
       // Additional interface endpoints: keep AWS API traffic private so
       // egress can be scoped away from the public internet. These cover the
       // services the ECS tasks and Lambdas call that previously required NAT.
@@ -217,7 +238,7 @@ export class NetworkStack extends SCLStack {
         privateDnsEnabled: true,
       });
       // OpenSearch Serverless control plane (create/delete collection, policies).
-      // No CDK constant exists; the data-plane endpoint above is separate.
+      // No CDK constant exists; the data-plane endpoint is created above.
       createdVpc.addInterfaceEndpoint("AossControlPlaneEndpoint", {
         service: new ec2.InterfaceVpcEndpointService(
           `com.amazonaws.${region}.aoss`,

@@ -43,6 +43,9 @@ CONTEXT="--context env=$ENV"
 [ -n "${SCL_NEPTUNE_INSTANCE_CLASS:-}" ] && CONTEXT="$CONTEXT --context neptune_instance_class=$SCL_NEPTUNE_INSTANCE_CLASS"
 [ -n "${SCL_AOSS_MIN_OCU:-}" ] && CONTEXT="$CONTEXT --context aoss_min_ocu=$SCL_AOSS_MIN_OCU"
 [ -n "${SCL_AOSS_MAX_OCU:-}" ] && CONTEXT="$CONTEXT --context aoss_max_ocu=$SCL_AOSS_MAX_OCU"
+# VPC endpoints: SCL_VPC_ENDPOINTS=minimal keeps only S3/DynamoDB gateways and the
+# AOSS data-plane endpoint; other AWS API traffic goes through the NAT gateway.
+[ -n "${SCL_VPC_ENDPOINTS:-}" ] && CONTEXT="$CONTEXT --context vpc_endpoints=$SCL_VPC_ENDPOINTS"
 
 # ── Preflight: SMUS admin principal ──────────────────────────────────────
 # NamespaceStack falls back to arn:aws:iam::<account>:role/Admin when

@@ -124,6 +124,27 @@ describe("NetworkStack", () => {
       }
     });
 
+    it("keeps only gateway + AOSS data-plane endpoints when vpc_endpoints=minimal", () => {
+      const template = buildStack({ vpc_endpoints: "minimal" });
+      const endpoints = Object.values(
+        template.findResources("AWS::EC2::VPCEndpoint"),
+      ) as any[];
+      const interfaces = endpoints.filter(
+        (e) => e.Properties.VpcEndpointType === "Interface",
+      );
+      expect(endpoints).toHaveLength(3);
+      expect(interfaces).toHaveLength(1);
+      expect(JSON.stringify(interfaces[0].Properties.ServiceName)).toContain(
+        "aoss-data",
+      );
+    });
+
+    it("rejects an unknown vpc_endpoints mode", () => {
+      expect(() => buildStack({ vpc_endpoints: "none" })).toThrow(
+        /vpc_endpoints/,
+      );
+    });
+
     it("does not create VPC endpoints when importing an existing VPC", () => {
       const template = buildStackWithEnv({ vpc_id: "vpc-0abc123" });
       template.resourceCountIs("AWS::EC2::VPCEndpoint", 0);
