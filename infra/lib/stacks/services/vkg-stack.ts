@@ -273,6 +273,9 @@ export class VkgStack extends SCLStack {
       securityGroups: [ecsSecurityGroup],
     });
 
+    // Lets the reload Lambda skip namespaces with no published R2RML mappings.
+    this.ontologyBucket.grantRead(reloadFn, "ontologies/*");
+
     reloadFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
