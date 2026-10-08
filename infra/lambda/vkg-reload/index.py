@@ -13,7 +13,9 @@ import os
 import re
 
 import boto3
+from botocore.exceptions import ClientError
 
+s3 = boto3.client("s3")
 ecs = boto3.client("ecs")
 sd = boto3.client("servicediscovery")
 ssm = boto3.client("ssm")
@@ -163,6 +165,27 @@ def _list_vkg_namespaces(cluster, prefix):
     return namespaces
 
 
+def _has_mappings(ns):
+    """Return False only when the namespace is known to have no published R2RML mappings.
+
+    Mappings are generated from relational datasource schemas, so a document-only
+    namespace never has them. Ontop would start degraded, fail its /health check
+    and be restarted by ECS in a loop. Any S3 error other than "not found" is
+    treated as "has mappings" so a transient failure never blocks a healthy reload.
+    """
+    bucket = os.environ.get("ONTOLOGY_BUCKET", "")
+    if not bucket:
+        return True
+    try:
+        s3.head_object(Bucket=bucket, Key=f"ontologies/{ns}/latest/mappings.r2rml")
+        return True
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") in ("404", "NoSuchKey", "NotFound"):
+            return False
+        print(json.dumps({"action": "mappings_check_failed", "namespace": ns, "error": str(e)}))
+        return True
+
+
 def _reload_one(ns, version, cluster, prefix, container_image=None):
     """Reconcile a single namespace's VKG service to the latest image.
 
@@ -180,6 +203,10 @@ def _reload_one(ns, version, cluster, prefix, container_image=None):
     service_name = f"{prefix}-vkg-{ns}"
     log = {"action": "reload_start", "namespace": ns, "version": version, "cluster": cluster, "service": service_name}
     print(json.dumps(log))
+
+    if not _has_mappings(ns):
+        print(json.dumps({"action": "reload_skipped", "namespace": ns, "reason": "no R2RML mappings published"}))
+        return {"status": "skipped", "reason": "no R2RML mappings published"}
 
     try:
         if container_image is None:
